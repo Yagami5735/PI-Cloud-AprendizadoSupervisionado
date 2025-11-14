@@ -33,20 +33,21 @@ jobs:
         cp -r backend/* deployment_package/
         cp -r frontend deployment_package/
         
-        # Criar web.config para Azure
+        # Criar web.config para Azure - FASTAPI
         cat > deployment_package/web.config << 'EOF'
         <?xml version="1.0" encoding="utf-8"?>
         <configuration>
           <appSettings>
             <add key="PYTHONPATH" value="." />
+            <add key="WEBSITES_PORT" value="8000" />
           </appSettings>
           <system.webServer>
             <handlers>
               <add name="PythonHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" />
             </handlers>
-            <httpPlatform processPath="python" arguments="-m uvicorn app:app --host 0.0.0.0 --port %HTTP_PLATFORM_PORT%" stdoutLogEnabled="true" stdoutLogFile=".">
+            <httpPlatform processPath="python" arguments="-m uvicorn app:app --host 0.0.0.0 --port 8000" stdoutLogEnabled="true" stdoutLogFile=".">
               <environmentVariables>
-                <environmentVariable name="PORT" value="%HTTP_PLATFORM_PORT%" />
+                <environmentVariable name="PORT" value="8000" />
               </environmentVariables>
             </httpPlatform>
           </system.webServer>
@@ -71,12 +72,23 @@ jobs:
         zip -r ../app.zip .
         cd ..
 
+    - name: Configure and Start Azure Web App
+      run: |
+        echo "🔧 Configuring Web App for FastAPI..."
+        az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group PI_Prod --linux-fx-version "PYTHON|3.11"
+        az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group PI_Prod --startup-file "uvicorn app:app --host 0.0.0.0 --port 8000"
+        
+        echo "🚀 Starting Web App..."
+        az webapp start --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group PI_Prod
+        
+        echo "⏳ Waiting for app to start..."
+        sleep 30
+
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         package: './app.zip'
-        # SEM publish-profile!
 
     - name: Verify deployment
       run: |
@@ -94,4 +106,6 @@ jobs:
         echo "Please configure these in Azure Portal:"
         echo "AZURE_STORAGE_CONNECTION_STRING"
         echo "AZURE_CONTAINER_MODELS=modelo"
-        echo "AZURE_CONTAINER_DATA=graficos"
+        echo "AZURE_CONTAINER_DATA=graficos"git add .github/workflows/deploy.yml
+git commit -m "fix: configure FastAPI and auto-start in Azure"
+git push origin main
