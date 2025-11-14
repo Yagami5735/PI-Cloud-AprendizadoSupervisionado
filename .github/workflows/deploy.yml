@@ -31,7 +31,24 @@ jobs:
       run: |
         mkdir -p deployment_package
         cp -r backend/* deployment_package/
-        cp -r frontend deployment_package/
+        
+        # Garantir que frontend seja copiado corretamente
+        mkdir -p deployment_package/frontend
+        if [ -d "frontend" ]; then
+            cp -r frontend/* deployment_package/frontend/
+            echo "✅ Frontend copiado com sucesso"
+            ls -la deployment_package/frontend/
+        else
+            echo "⚠️  Diretório frontend não encontrado localmente"
+            # Criar frontend básico
+            cat > deployment_package/frontend/index.html << 'EOF'
+            <!DOCTYPE html>
+            <html>
+            <head><title>ML App</title></head>
+            <body><h1>ML Application</h1><p>Frontend carregado</p></body>
+            </html>
+            EOF
+        fi
         
         # Criar web.config para Azure - FASTAPI
         cat > deployment_package/web.config << 'EOF'
