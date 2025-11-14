@@ -1,4 +1,4 @@
-# backend/app.py (ATUALIZADO)
+# backend/app.py
 from fastapi import FastAPI, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -35,21 +35,13 @@ app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 @app.get("/", response_class=HTMLResponse)
 def serve_index():
-    try:
-        index_path = FRONTEND_DIR / "index.html"
-        with open(index_path, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return HTMLResponse("""
-        <html>
-            <body>
-                <h1>API ML Funcionando! ✅</h1>
-                <p>Frontend em desenvolvimento.</p>
-            </body>
-        </html>
-        """)
+    # Lê o arquivo index.html da pasta frontend
+    index_path = FRONTEND_DIR / "index.html"
+    with open(index_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+    return HTMLResponse(html_content)
 
-# ... (o resto do seu código permanece igual)
+# ... (o resto do código permanece igual)
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "message": "API está funcionando"}
