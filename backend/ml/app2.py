@@ -5,28 +5,22 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import mean_squared_error
-import os
 from fastapi import HTTPException
-from .azure_utils import download_arquivo, upload_arquivo
+from .azure_utils import download_bytes, upload_bytes, salvar_modelo, carregar_modelo, download_arquivo
 from io import BytesIO
-import requests
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# ---------- util: descriptografa bytes (sua "subtrair 1") ----------
+# ---------- util: descriptografa bytes ----------
 def descriptografar_binario(bin_data: bytes) -> pd.DataFrame:
     dados = bytes([(b - 1) % 256 for b in bin_data])
     buffer = BytesIO(dados)
     df = pd.read_csv(buffer)
     return df
 
-# ---------- util: baixa binário do Blob e retorna DataFrame ----------
+# ---------- util: baixa binário do Blob ----------
 def baixar_binario_do_blob(blob_name: str) -> pd.DataFrame:
-    url = download_arquivo(blob_name)
-    # download do conteúdo binário
-    r = requests.get(url)
-    r.raise_for_status()
-    df = descriptografar_binario(r.content)
+    # USANDO CONTAINER "uploads"
+    bin_data = download_bytes(blob_name, "uploads")
+    df = descriptografar_binario(bin_data)
     return df
 
 # ---------- validação ----------
@@ -40,7 +34,7 @@ def validar_dados(X, y):
     if erros:
         raise HTTPException(status_code=400, detail={"status": "erro_validacao", "mensagens": erros})
 
-# ---------- normalização MinMax (aplicada separadamente por dataset) ----------
+# ---------- normalização MinMax ----------
 def normalizar_minmax(X: pd.DataFrame) -> pd.DataFrame:
     X_norm = X.copy()
     for campo in X.columns:
@@ -51,8 +45,15 @@ def normalizar_minmax(X: pd.DataFrame) -> pd.DataFrame:
             X_norm[campo] = (X[campo] - X[campo].min()) / denom
     return X_norm
 
+def figura_para_bytes(fig) -> bytes:
+    """Converte figura matplotlib para bytes em memória."""
+    buffer = BytesIO()
+    fig.savefig(buffer, format='png', dpi=300, bbox_inches='tight')
+    buffer.seek(0)
+    return buffer.getvalue()
+
 # ===========================
-# treinar_modelo (mantido)
+# treinar_modelo
 # ===========================
 def treinar_modelo(X_blob="X.bin", y_blob="y.bin"):
     X = baixar_binario_do_blob(X_blob)
@@ -107,18 +108,24 @@ def treinar_modelo(X_blob="X.bin", y_blob="y.bin"):
     ax_rmse.legend(); ax_rmse.grid(alpha=0.3)
 
     plt.tight_layout()
-    img_path = os.path.join(BASE_DIR, "cv_plot2.png")
-    plt.savefig(img_path, dpi=300, bbox_inches='tight')
+    
+    # USANDO CONTAINER "uploads"
+    img_bytes = figura_para_bytes(fig)
+    upload_bytes(img_bytes, "cv_plot2.png", "uploads")
     plt.close(fig)
-
-    upload_arquivo(img_path, "cv_plot2.png")
-    blob_url = download_arquivo("cv_plot2.png")
+    
+    # Salva o modelo final treinado
+    modelo_final = LinearRegression().fit(X, y)
+    salvar_modelo(modelo_final, "modelo_final.pkl")
+    
+    # USANDO CONTAINER "uploads"
+    blob_url = download_arquivo("cv_plot2.png", "uploads")
     return blob_url
 
 # ===========================
-# avaliar_modelo (corrigido para retornar URL do gráfico)
+# avaliar_modelo
 # ===========================
-def avaliar_modelo(X_blob="X.bin", y_blob="y.bin"):
+def avaliar_modelo(X_blob="X_avaliacao.bin", y_blob="y_avaliacao.bin"):
     X = baixar_binario_do_blob(X_blob)
     y = baixar_binario_do_blob(y_blob)
     if y.ndim > 1 and y.shape[1] > 1:
@@ -129,12 +136,19 @@ def avaliar_modelo(X_blob="X.bin", y_blob="y.bin"):
     validar_dados(X, y)
 
     X_norm = normalizar_minmax(X)
-    modelo = LinearRegression().fit(X_norm, y)
+    
+    # Carrega o modelo treinado
+    try:
+        modelo = carregar_modelo("modelo_final.pkl")
+    except:
+        modelo = LinearRegression().fit(X_norm, y)
+        salvar_modelo(modelo, "modelo_final.pkl")
+    
     y_pred = modelo.predict(X_norm)
     rmse = mean_squared_error(y, y_pred) ** 0.5
     r2 = modelo.score(X_norm, y)
 
-    # Gera gráfico avaliação (Real vs Predito + info)
+    # Gera gráfico avaliação
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
     ax1.plot(X_norm.index, y, label='Real', color='blue', linewidth=2)
     ax1.plot(X_norm.index, y_pred, label='Predito', color='red', linewidth=2)
@@ -155,41 +169,28 @@ def avaliar_modelo(X_blob="X.bin", y_blob="y.bin"):
     ax2.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    img_path = os.path.join(BASE_DIR, "avaliacao_plot.png")
-    plt.savefig(img_path, dpi=300, bbox_inches='tight')
+    
+    # USANDO CONTAINER "uploads"
+    img_bytes = figura_para_bytes(fig)
+    upload_bytes(img_bytes, "avaliacao_plot.png", "uploads")
     plt.close(fig)
 
-    upload_arquivo(img_path, "avaliacao_plot.png")
-    blob_url = download_arquivo("avaliacao_plot.png")
+    # USANDO CONTAINER "uploads"
+    blob_url = download_arquivo("avaliacao_plot.png", "uploads")
     return blob_url
 
 # ===========================
-# prever_novos_dados (ajustado: treina modelo com dados de treino e aplica em X_blob)
+# prever_novos_dados
 # ===========================
 def prever_novos_dados(X_blob="X_previsao.bin"):
-    # 1) Baixa dados de treino originais (assumidos como X.bin e y.bin no container)
+    # Carrega modelo treinado
     try:
-        X_train = baixar_binario_do_blob("X.bin")
-        y_train = baixar_binario_do_blob("y.bin")
+        modelo = carregar_modelo("modelo_final.pkl")
     except Exception as e:
-        # Se não encontrar os arquivos de treino, devolve erro claro
-        raise HTTPException(status_code=400, detail=f"Arquivos de treino (X.bin/y.bin) não encontrados no Blob: {e}")
+        raise HTTPException(status_code=400, detail=f"Modelo não encontrado. Treine um modelo primeiro: {e}")
 
-    if y_train.ndim > 1 and y_train.shape[1] > 1:
-        y_train = y_train.iloc[:, 0]
-
-    # Preprocessa treino
-    df_train = pd.concat([X_train, y_train], axis=1).dropna()
-    X_train, y_train = df_train.iloc[:, :-1], df_train.iloc[:, -1]
-    validar_dados(X_train, y_train)
-    X_train_norm = normalizar_minmax(X_train)
-
-    # Treina modelo final
-    modelo = LinearRegression().fit(X_train_norm, y_train)
-
-    # 2) Baixa os dados novos (X_blob) e faz predict
+    # Baixa dados novos
     X_novos = baixar_binario_do_blob(X_blob)
-    # assume X_novos tem mesmas colunas; normaliza separadamente (como feito no restante do pipeline)
     X_novos_norm = normalizar_minmax(X_novos)
 
     # Prever
@@ -203,10 +204,11 @@ def prever_novos_dados(X_blob="X_previsao.bin"):
     ax.legend(); ax.grid(True, alpha=0.3)
     plt.tight_layout()
 
-    img_path = os.path.join(BASE_DIR, "prever_plot.png")
-    plt.savefig(img_path, dpi=300, bbox_inches='tight')
+    # USANDO CONTAINER "uploads"
+    img_bytes = figura_para_bytes(fig)
+    upload_bytes(img_bytes, "prever_plot.png", "uploads")
     plt.close(fig)
 
-    upload_arquivo(img_path, "prever_plot.png")
-    blob_url = download_arquivo("prever_plot.png")
+    # USANDO CONTAINER "uploads"
+    blob_url = download_arquivo("prever_plot.png", "uploads")
     return blob_url

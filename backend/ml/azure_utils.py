@@ -1,6 +1,8 @@
 import os
 import logging
 from azure.storage.blob import BlobServiceClient
+import pickle
+from io import BytesIO
 
 # Configurar logging
 logger = logging.getLogger(__name__)
@@ -25,25 +27,22 @@ def get_blob_service_client():
         logger.error(f"Error creating blob service client: {e}")
         raise
 
-def download_arquivo(container_name, blob_name, local_file_name):
-    """Faz download de um arquivo do Azure Blob Storage"""
+def download_arquivo(blob_name: str, container_name: str) -> str:
+    """Retorna a URL pública do arquivo no Azure Blob Storage"""
     if not AZURE_STORAGE_CONNECTION_STRING:
-        raise RuntimeError("Azure env vars missing - cannot download file")
+        raise RuntimeError("Azure env vars missing - cannot get file URL")
     
     try:
         blob_service_client = get_blob_service_client()
         blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
         
-        with open(local_file_name, "wb") as download_file:
-            download_file.write(blob_client.download_blob().readall())
-        
-        logger.info(f"File downloaded: {blob_name} -> {local_file_name}")
-        return True
+        # Retorna a URL do blob
+        return blob_client.url
     except Exception as e:
-        logger.error(f"Error downloading file: {e}")
+        logger.error(f"Error getting file URL: {e}")
         raise
 
-def upload_arquivo(container_name, local_file_name, blob_name=None):
+def upload_arquivo(local_file_name: str, blob_name: str = None, container_name: str = "uploads"):
     """Faz upload de um arquivo para o Azure Blob Storage"""
     if not AZURE_STORAGE_CONNECTION_STRING:
         raise RuntimeError("Azure env vars missing - cannot upload file")
@@ -59,12 +58,76 @@ def upload_arquivo(container_name, local_file_name, blob_name=None):
             blob_client.upload_blob(data, overwrite=True)
         
         logger.info(f"File uploaded: {local_file_name} -> {blob_name}")
-        return True
+        return blob_client.url
     except Exception as e:
         logger.error(f"Error uploading file: {e}")
         raise
 
-# Funções auxiliares
+def upload_bytes(data: bytes, blob_name: str, container_name: str):
+    """Faz upload de bytes diretamente para o Azure Blob Storage"""
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        raise RuntimeError("Azure env vars missing - cannot upload bytes")
+    
+    try:
+        blob_service_client = get_blob_service_client()
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        
+        blob_client.upload_blob(data, overwrite=True)
+        
+        logger.info(f"Bytes uploaded: {blob_name} ({len(data)} bytes)")
+        return blob_client.url
+    except Exception as e:
+        logger.error(f"Error uploading bytes: {e}")
+        raise
+
+def download_bytes(blob_name: str, container_name: str) -> bytes:
+    """Faz download de bytes do Azure Blob Storage"""
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        raise RuntimeError("Azure env vars missing - cannot download bytes")
+    
+    try:
+        blob_service_client = get_blob_service_client()
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        
+        download_stream = blob_client.download_blob()
+        data = download_stream.readall()
+        
+        logger.info(f"Bytes downloaded: {blob_name} ({len(data)} bytes)")
+        return data
+    except Exception as e:
+        logger.error(f"Error downloading bytes: {e}")
+        raise
+
+def salvar_modelo(modelo, blob_name: str, container_name: str = "uploads"):
+    """Salva um modelo treinado no Azure Blob Storage"""
+    try:
+        # Serializa o modelo para bytes
+        model_bytes = pickle.dumps(modelo)
+        
+        # Faz upload dos bytes
+        upload_bytes(model_bytes, blob_name, container_name)
+        
+        logger.info(f"Model saved: {blob_name}")
+    except Exception as e:
+        logger.error(f"Error saving model: {e}")
+        raise
+
+def carregar_modelo(blob_name: str, container_name: str = "uploads"):
+    """Carrega um modelo do Azure Blob Storage"""
+    try:
+        # Faz download dos bytes
+        model_bytes = download_bytes(blob_name, container_name)
+        
+        # Desserializa o modelo
+        modelo = pickle.loads(model_bytes)
+        
+        logger.info(f"Model loaded: {blob_name}")
+        return modelo
+    except Exception as e:
+        logger.error(f"Error loading model: {e}")
+        raise
+
+# Funções auxiliares (mantidas da sua versão original)
 def container_exists(container_name):
     """Verifica se um container existe"""
     if not AZURE_STORAGE_CONNECTION_STRING:
@@ -89,38 +152,3 @@ def list_blobs(container_name):
     except Exception as e:
         logger.error(f"Error listing blobs: {e}")
         return []
-
-def upload_bytes(data: bytes, blob_name: str, container_name: str):
-    """Faz upload de bytes diretamente para o Azure Blob Storage"""
-    if not AZURE_STORAGE_CONNECTION_STRING:
-        raise RuntimeError("Azure env vars missing - cannot upload bytes")
-    
-    try:
-        blob_service_client = get_blob_service_client()
-        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
-        
-        blob_client.upload_blob(data, overwrite=True)
-        
-        logger.info(f"Bytes uploaded: {blob_name} ({len(data)} bytes)")
-        return True
-    except Exception as e:
-        logger.error(f"Error uploading bytes: {e}")
-        raise
-
-def download_bytes(blob_name: str, container_name: str) -> bytes:
-    """Faz download de bytes do Azure Blob Storage"""
-    if not AZURE_STORAGE_CONNECTION_STRING:
-        raise RuntimeError("Azure env vars missing - cannot download bytes")
-    
-    try:
-        blob_service_client = get_blob_service_client()
-        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
-        
-        download_stream = blob_client.download_blob()
-        data = download_stream.readall()
-        
-        logger.info(f"Bytes downloaded: {blob_name} ({len(data)} bytes)")
-        return data
-    except Exception as e:
-        logger.error(f"Error downloading bytes: {e}")
-        raise

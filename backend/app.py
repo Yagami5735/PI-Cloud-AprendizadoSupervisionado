@@ -41,7 +41,6 @@ def serve_index():
         html_content = f.read()
     return HTMLResponse(html_content)
 
-# ... (o resto do código permanece igual)
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "message": "API está funcionando"}
@@ -68,8 +67,9 @@ async def upload_csv(file: UploadFile, campo: str = Form(...)):
         X_bin = criptografar_df(X)
         y_bin = criptografar_df(y)
 
-        upload_bytes(X_bin, "X.bin", "data")
-        upload_bytes(y_bin, "y.bin", "data")
+        # USANDO CONTAINER "uploads"
+        upload_bytes(X_bin, "X.bin", "uploads")
+        upload_bytes(y_bin, "y.bin", "uploads")
 
         grafico_url = treinar_modelo("X.bin", "y.bin")
 
@@ -95,8 +95,9 @@ async def avaliar_csv(file: UploadFile, campo: str = Form(...)):
         X_bin = criptografar_df(X)
         y_bin = criptografar_df(y)
 
-        upload_bytes(X_bin, "X_avaliacao.bin", "data")
-        upload_bytes(y_bin, "y_avaliacao.bin", "data")
+        # USANDO CONTAINER "uploads"
+        upload_bytes(X_bin, "X_avaliacao.bin", "uploads")
+        upload_bytes(y_bin, "y_avaliacao.bin", "uploads")
 
         grafico_url = avaliar_modelo("X_avaliacao.bin", "y_avaliacao.bin")
 
@@ -114,7 +115,8 @@ async def prever_csv(file: UploadFile):
         df = pd.read_csv(BytesIO(file_content))
 
         X_bin = criptografar_df(df)
-        upload_bytes(X_bin, "X_previsao.bin", "data")
+        # USANDO CONTAINER "uploads"
+        upload_bytes(X_bin, "X_previsao.bin", "uploads")
 
         grafico_url = prever_novos_dados("X_previsao.bin")
 
@@ -124,3 +126,10 @@ async def prever_csv(file: UploadFile):
         })
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.post("/reset/")
+async def resetar_modelo():
+    return JSONResponse({
+        "status": "ok",
+        "mensagem": "Interface resetada."
+    })
