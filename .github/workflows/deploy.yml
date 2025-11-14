@@ -24,12 +24,10 @@ jobs:
 
     - name: Create deployment package
       run: |
-        # Criar estrutura para deploy no Azure
         mkdir -p deployment_package
         cp -r backend/* deployment_package/
         cp -r frontend deployment_package/
         
-        # Criar arquivo de requirements
         cat > deployment_package/requirements.txt << 'EOF'
         fastapi==0.104.1
         uvicorn[standard]==0.24.0
@@ -43,27 +41,10 @@ jobs:
         python-multipart==0.0.6
         joblib==1.3.2
         EOF
-        
-        # Criar startup.py para Azure
-        cat > deployment_package/startup.py << 'EOF'
-        import os
-        import uvicorn
 
-        if __name__ == "__main__":
-            port = int(os.environ.get("PORT", 8000))
-            uvicorn.run(
-                "app:app",
-                host="0.0.0.0",
-                port=port,
-                workers=1
-            )
-        EOF
-
-        # Zip do pacote de deploy
         cd deployment_package
         zip -r ../app.zip .
         cd ..
-        echo "📦 Deployment package created successfully"
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
@@ -74,24 +55,6 @@ jobs:
 
     - name: Verify deployment
       run: |
-        echo "🚀 Deployment completed!"
-        echo "🌐 Application URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
-        echo "⏳ Waiting for app to start..."
+        echo "🚀 Checking deployment..."
         sleep 30
-        echo "🔍 Testing health endpoint..."
-        curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "⚠️ Health check failed - check Azure logs"
-
-    - name: Post-deployment info
-      run: |
-        echo "🎉 Application successfully deployed to Azure!"
-        echo ""
-        echo "📋 Next steps:"
-        echo "1. Configure environment variables in Azure Portal"
-        echo "2. Test the application: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
-        echo "3. Check application logs in Azure Portal if needed"
-        echo ""
-        echo "🔗 Application URLs:"
-        echo "   - Main: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
-        echo "   - Health: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health"
-        echo ""
-        echo "✅ Deployment finished at: $(date -u)"
+        curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "⚠️ Health check failed"
