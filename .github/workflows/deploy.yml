@@ -24,6 +24,7 @@ jobs:
       run: |
         mkdir -p deployment_package
         cp -r backend/* deployment_package/
+        cp -r frontend deployment_package/
         cd deployment_package
         zip -r ../app.zip .
         cd ..
