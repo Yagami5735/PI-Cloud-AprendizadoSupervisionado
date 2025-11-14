@@ -32,25 +32,17 @@ jobs:
         mkdir -p deployment_package
         cp -r backend/* deployment_package/
         
-        # Garantir que frontend seja copiado corretamente
         mkdir -p deployment_package/frontend
         if [ -d "frontend" ]; then
-            cp -r frontend/* deployment_package/frontend/
-            echo "✅ Frontend copiado com sucesso"
-            ls -la deployment_package/frontend/
+          cp -r frontend/* deployment_package/frontend/
+          echo "✅ Frontend copiado com sucesso"
         else
-            echo "⚠️  Diretório frontend não encontrado localmente"
-            # Criar frontend básico
-            cat > deployment_package/frontend/index.html << 'EOF'
-            <!DOCTYPE html>
-            <html>
-            <head><title>ML App</title></head>
-            <body><h1>ML Application</h1><p>Frontend carregado</p></body>
-            </html>
-            EOF
+          echo "⚠️ Diretório frontend não encontrado"
+          cat > deployment_package/frontend/index.html << 'EOF'
+          <html><body><h1>ML App</h1><p>Frontend</p></body></html>
+          EOF
         fi
         
-        # Criar web.config para Azure - FASTAPI
         cat > deployment_package/web.config << 'EOF'
         <?xml version="1.0" encoding="utf-8"?>
         <configuration>
@@ -60,11 +52,11 @@ jobs:
           </appSettings>
           <system.webServer>
             <handlers>
-              <add name="PythonHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" />
+              <add name="PythonHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified"/>
             </handlers>
             <httpPlatform processPath="python" arguments="-m uvicorn app:app --host 0.0.0.0 --port 8000" stdoutLogEnabled="true" stdoutLogFile=".">
               <environmentVariables>
-                <environmentVariable name="PORT" value="8000" />
+                <environmentVariable name="PORT" value="8000"/>
               </environmentVariables>
             </httpPlatform>
           </system.webServer>
@@ -91,14 +83,10 @@ jobs:
 
     - name: Configure and Start Azure Web App
       run: |
-        echo "🔧 Configuring Web App for FastAPI..."
+        echo "🔧 Configuring Web App..."
         az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group PI_Prod --linux-fx-version "PYTHON|3.11"
         az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group PI_Prod --startup-file "uvicorn app:app --host 0.0.0.0 --port 8000"
-        
-        echo "🚀 Starting Web App..."
         az webapp start --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group PI_Prod
-        
-        echo "⏳ Waiting for app to start..."
         sleep 30
 
     - name: Deploy to Azure Web App
@@ -111,7 +99,5 @@ jobs:
       run: |
         echo "🚀 Deployment completed!"
         echo "🌐 Application URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
-        echo "⏳ Waiting for app to start..."
         sleep 30
-        echo "🔍 Testing health endpoint..."
-        curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "⚠️ Health check failed - check Azure Portal logs"
+        curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "⚠️ Health check failed"
