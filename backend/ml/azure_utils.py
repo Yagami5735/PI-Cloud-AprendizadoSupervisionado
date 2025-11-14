@@ -28,18 +28,34 @@ def get_blob_service_client():
         raise
 
 def download_arquivo(blob_name: str, container_name: str) -> str:
-    """Retorna a URL pública do arquivo no Azure Blob Storage"""
+    """Retorna a URL pública assinada do arquivo no Azure Blob Storage"""
     if not AZURE_STORAGE_CONNECTION_STRING:
         raise RuntimeError("Azure env vars missing - cannot get file URL")
     
     try:
+        from datetime import datetime, timedelta
+        from azure.storage.blob import generate_blob_sas, BlobSasPermissions
+        
         blob_service_client = get_blob_service_client()
         blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
         
-        # Retorna a URL do blob
-        return blob_client.url
+        # Gera SAS token para acesso público temporário
+        sas_token = generate_blob_sas(
+            account_name=AZURE_STORAGE_ACCOUNT_NAME,
+            container_name=container_name,
+            blob_name=blob_name,
+            account_key=AZURE_STORAGE_ACCOUNT_KEY,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.utcnow() + timedelta(hours=24)  # Válido por 24 horas
+        )
+        
+        # Retorna a URL com SAS token
+        url = f"https://{AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{container_name}/{blob_name}?{sas_token}"
+        logger.info(f"Generated SAS URL for: {blob_name}")
+        return url
+        
     except Exception as e:
-        logger.error(f"Error getting file URL: {e}")
+        logger.error(f"Error generating file URL: {e}")
         raise
 
 def upload_arquivo(local_file_name: str, blob_name: str = None, container_name: str = "uploads"):
