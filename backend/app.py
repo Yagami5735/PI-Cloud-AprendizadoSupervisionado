@@ -9,10 +9,8 @@ import pandas as pd
 from ml.app2 import treinar_modelo, avaliar_modelo, prever_novos_dados
 from ml.azure_utils import upload_bytes
 from io import BytesIO
-from pathlib import Path
 
-BASE_DIR = Path(__file__).parent
-FRONTEND_DIR = BASE_DIR / "frontend"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = FastAPI(title="Projeto Integrador ML", version="1.0.0")
 
@@ -30,44 +28,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Frontend e arquivos estáticos - com fallback
-try:
-    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
-    print(f"✅ Static files mounted from: {FRONTEND_DIR}")
-except Exception as e:
-    print(f"⚠️  Não foi possível montar static files: {e}")
-
 @app.get("/", response_class=HTMLResponse)
 def serve_index():
-    try:
-        index_path = FRONTEND_DIR / "index.html"
-        with open(index_path, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        # Fallback se o frontend não existir
-        return HTMLResponse("""
-        <html>
-            <head>
-                <title>Projeto Integrador ML</title>
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 40px; }
-                    h1 { color: #007bff; }
-                    ul { line-height: 1.6; }
-                </style>
-            </head>
-            <body>
-                <h1>API ML - Projeto Integrador</h1>
-                <p>Frontend não encontrado. API está funcionando!</p>
-                <p>Use os endpoints:</p>
-                <ul>
-                    <li>POST /upload/ - Treinar modelo</li>
-                    <li>POST /avaliar/ - Avaliar modelo</li>
-                    <li>POST /prever/ - Fazer previsões</li>
-                    <li>GET /health - Status da API</li>
-                </ul>
-            </body>
-        </html>
-        """)
+    return HTMLResponse("""
+    <html>
+        <body>
+            <h1>API ML Funcionando! ✅</h1>
+            <p>Backend no ar. Frontend pode ser adicionado depois.</p>
+            <p><a href="/health">Verificar saúde da API</a></p>
+        </body>
+    </html>
+    """)
 
 @app.get("/health")
 def health_check():
