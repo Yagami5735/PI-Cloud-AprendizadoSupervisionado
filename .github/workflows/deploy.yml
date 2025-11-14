@@ -12,39 +12,35 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
-    - name: Login to Azure
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Create deployment package
-      run: |
-        mkdir -p deployment_package
-        cp -r backend/* deployment_package/
-        
-        mkdir -p deployment_package/frontend
-        if [ -d "frontend" ]; then
-          cp -r frontend/* deployment_package/frontend/
-          echo "✅ Frontend copiado com sucesso"
-        else
-          echo "⚠️ Diretório frontend não encontrado"
-          cat > deployment_package/frontend/index.html << 'EOF'
-<html><body><h1>ML App</h1><p>Frontend</p></body></html>
-EOF
-        fi
-        
-        cat > deployment_package/web.config << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
+      - name: Create deployment package
+        run: |
+          mkdir -p deployment_package
+          cp -r backend/* deployment_package/
+          
+          mkdir -p deployment_package/frontend
+          if [ -d "frontend" ]; then
+            cp -r frontend/* deployment_package/frontend/
+            echo "✅ Frontend copiado com sucesso"
+          else
+            echo "⚠️ Diretório frontend não encontrado"
+            echo "<html><body><h1>ML App</h1><p>Frontend</p></body></html>" > deployment_package/frontend/index.html
+          fi
+          
+          echo '<?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <appSettings>
     <add key="PYTHONPATH" value="." />
@@ -60,11 +56,9 @@ EOF
       </environmentVariables>
     </httpPlatform>
   </system.webServer>
-</configuration>
-EOF
-        
-        cat > deployment_package/requirements.txt << 'EOF'
-fastapi==0.104.1
+</configuration>' > deployment_package/web.config
+          
+          echo 'fastapi==0.104.1
 uvicorn[standard]==0.24.0
 pandas==2.1.3
 numpy==1.24.3
@@ -74,30 +68,29 @@ azure-storage-blob==12.19.0
 python-dotenv==1.0.0
 requests==2.31.0
 python-multipart==0.0.6
-joblib==1.3.2
-EOF
+joblib==1.3.2' > deployment_package/requirements.txt
 
-        cd deployment_package
-        zip -r ../app.zip .
-        cd ..
+          cd deployment_package
+          zip -r ../app.zip .
+          cd ..
 
-    - name: Configure and Start Azure Web App
-      run: |
-        echo "🔧 Configuring Web App..."
-        az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group PI_Prod --linux-fx-version "PYTHON|3.11"
-        az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group PI_Prod --startup-file "uvicorn app:app --host 0.0.0.0 --port 8000"
-        az webapp start --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group PI_Prod
-        sleep 30
+      - name: Configure and Start Azure Web App
+        run: |
+          echo "🔧 Configuring Web App..."
+          az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group PI_Prod --linux-fx-version "PYTHON|3.11"
+          az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group PI_Prod --startup-file "uvicorn app:app --host 0.0.0.0 --port 8000"
+          az webapp start --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group PI_Prod
+          sleep 30
 
-    - name: Deploy to Azure Web App
-      uses: azure/webapps-deploy@v2
-      with:
-        app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        package: './app.zip'
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: './app.zip'
 
-    - name: Verify deployment
-      run: |
-        echo "🚀 Deployment completed!"
-        echo "🌐 Application URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
-        sleep 30
-        curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "⚠️ Health check failed"
+      - name: Verify deployment
+        run: |
+          echo "🚀 Deployment completed!"
+          echo "🌐 Application URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+          sleep 30
+          curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "⚠️ Health check failed"
