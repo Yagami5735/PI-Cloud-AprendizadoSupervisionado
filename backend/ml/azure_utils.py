@@ -89,3 +89,38 @@ def list_blobs(container_name):
     except Exception as e:
         logger.error(f"Error listing blobs: {e}")
         return []
+
+def upload_bytes(data: bytes, blob_name: str, container_name: str):
+    """Faz upload de bytes diretamente para o Azure Blob Storage"""
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        raise RuntimeError("Azure env vars missing - cannot upload bytes")
+    
+    try:
+        blob_service_client = get_blob_service_client()
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        
+        blob_client.upload_blob(data, overwrite=True)
+        
+        logger.info(f"Bytes uploaded: {blob_name} ({len(data)} bytes)")
+        return True
+    except Exception as e:
+        logger.error(f"Error uploading bytes: {e}")
+        raise
+
+def download_bytes(blob_name: str, container_name: str) -> bytes:
+    """Faz download de bytes do Azure Blob Storage"""
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        raise RuntimeError("Azure env vars missing - cannot download bytes")
+    
+    try:
+        blob_service_client = get_blob_service_client()
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        
+        download_stream = blob_client.download_blob()
+        data = download_stream.readall()
+        
+        logger.info(f"Bytes downloaded: {blob_name} ({len(data)} bytes)")
+        return data
+    except Exception as e:
+        logger.error(f"Error downloading bytes: {e}")
+        raise
