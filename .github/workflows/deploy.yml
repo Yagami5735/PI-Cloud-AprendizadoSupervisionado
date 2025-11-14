@@ -106,6 +106,4 @@ jobs:
         echo "Please configure these in Azure Portal:"
         echo "AZURE_STORAGE_CONNECTION_STRING"
         echo "AZURE_CONTAINER_MODELS=modelo"
-        echo "AZURE_CONTAINER_DATA=graficos"git add .github/workflows/deploy.yml
-git commit -m "fix: configure FastAPI and auto-start in Azure"
-git push origin main
+        echo "AZURE_CONTAINER_DATA=graficos"
