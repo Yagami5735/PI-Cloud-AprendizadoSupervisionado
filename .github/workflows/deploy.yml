@@ -22,11 +22,36 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
     - name: Create deployment package
       run: |
         mkdir -p deployment_package
         cp -r backend/* deployment_package/
         cp -r frontend deployment_package/
+        
+        # Criar web.config para Azure
+        cat > deployment_package/web.config << 'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <configuration>
+          <appSettings>
+            <add key="PYTHONPATH" value="." />
+          </appSettings>
+          <system.webServer>
+            <handlers>
+              <add name="PythonHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" />
+            </handlers>
+            <httpPlatform processPath="python" arguments="-m uvicorn app:app --host 0.0.0.0 --port %HTTP_PLATFORM_PORT%" stdoutLogEnabled="true" stdoutLogFile=".">
+              <environmentVariables>
+                <environmentVariable name="PORT" value="%HTTP_PLATFORM_PORT%" />
+              </environmentVariables>
+            </httpPlatform>
+          </system.webServer>
+        </configuration>
+        EOF
         
         cat > deployment_package/requirements.txt << 'EOF'
         fastapi==0.104.1
@@ -50,11 +75,23 @@ jobs:
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
         package: './app.zip'
+        # SEM publish-profile!
 
     - name: Verify deployment
       run: |
-        echo "🚀 Checking deployment..."
+        echo "🚀 Deployment completed!"
+        echo "🌐 Application URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+        echo "⏳ Waiting for app to start..."
         sleep 30
-        curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "⚠️ Health check failed"
+        echo "🔍 Testing health endpoint..."
+        curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "⚠️ Health check failed - check Azure Portal logs"
+
+    - name: Configure App Settings
+      run: |
+        echo "⚙️ Configuring environment variables..."
+        # As variáveis serão configuradas manualmente no Azure Portal
+        echo "Please configure these in Azure Portal:"
+        echo "AZURE_STORAGE_CONNECTION_STRING"
+        echo "AZURE_CONTAINER_MODELS=modelo"
+        echo "AZURE_CONTAINER_DATA=graficos"
