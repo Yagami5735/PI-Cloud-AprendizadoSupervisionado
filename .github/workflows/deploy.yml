@@ -1,0 +1,97 @@
+name: Deploy Python App to Azure
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: 'pi-backend-ml'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Create deployment package
+      run: |
+        # Criar estrutura para deploy no Azure
+        mkdir -p deployment_package
+        cp -r backend/* deployment_package/
+        cp -r frontend deployment_package/
+        
+        # Criar arquivo de requirements
+        cat > deployment_package/requirements.txt << 'EOF'
+        fastapi==0.104.1
+        uvicorn[standard]==0.24.0
+        pandas==2.1.3
+        numpy==1.24.3
+        scikit-learn==1.3.2
+        matplotlib==3.8.2
+        azure-storage-blob==12.19.0
+        python-dotenv==1.0.0
+        requests==2.31.0
+        python-multipart==0.0.6
+        joblib==1.3.2
+        EOF
+        
+        # Criar startup.py para Azure
+        cat > deployment_package/startup.py << 'EOF'
+        import os
+        import uvicorn
+
+        if __name__ == "__main__":
+            port = int(os.environ.get("PORT", 8000))
+            uvicorn.run(
+                "app:app",
+                host="0.0.0.0",
+                port=port,
+                workers=1
+            )
+        EOF
+
+        # Zip do pacote de deploy
+        cd deployment_package
+        zip -r ../app.zip .
+        cd ..
+        echo "📦 Deployment package created successfully"
+
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: './app.zip'
+
+    - name: Verify deployment
+      run: |
+        echo "🚀 Deployment completed!"
+        echo "🌐 Application URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+        echo "⏳ Waiting for app to start..."
+        sleep 30
+        echo "🔍 Testing health endpoint..."
+        curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "⚠️ Health check failed - check Azure logs"
+
+    - name: Post-deployment info
+      run: |
+        echo "🎉 Application successfully deployed to Azure!"
+        echo ""
+        echo "📋 Next steps:"
+        echo "1. Configure environment variables in Azure Portal"
+        echo "2. Test the application: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+        echo "3. Check application logs in Azure Portal if needed"
+        echo ""
+        echo "🔗 Application URLs:"
+        echo "   - Main: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+        echo "   - Health: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health"
+        echo ""
+        echo "✅ Deployment finished at: $(date -u)"
