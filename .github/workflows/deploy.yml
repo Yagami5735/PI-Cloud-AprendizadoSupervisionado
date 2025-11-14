@@ -115,12 +115,3 @@ jobs:
         sleep 30
         echo "🔍 Testing health endpoint..."
         curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "⚠️ Health check failed - check Azure Portal logs"
-
-    - name: Configure App Settings
-      run: |
-        echo "⚙️ Configuring environment variables..."
-        # As variáveis serão configuradas manualmente no Azure Portal
-        echo "Please configure these in Azure Portal:"
-        echo "AZURE_STORAGE_CONNECTION_STRING"
-        echo "AZURE_CONTAINER_MODELS=modelo"
-        echo "AZURE_CONTAINER_DATA=graficos"
