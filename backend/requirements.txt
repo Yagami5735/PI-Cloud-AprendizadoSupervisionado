@@ -1,0 +1,10 @@
+fastapi==0.95.2
+uvicorn[standard]==0.22.0
+python-multipart==0.0.6
+pandas==2.2.2
+numpy==1.26.4
+scikit-learn==1.4.1
+matplotlib==3.8.2
+requests==2.32.4
+azure-storage-blob==12.21.1
+python-dotenv==1.0.0
