@@ -1,70 +1,91 @@
 import os
-from dotenv import load_dotenv
+import logging
 from azure.storage.blob import BlobServiceClient
 
-load_dotenv()
+# Configurar logging
+logger = logging.getLogger(__name__)
 
-CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-CONTAINER_NAME = os.getenv("AZURE_CONTAINER_NAME")
+# Verifica se as variáveis existem, mas não quebra o app na importação
+AZURE_STORAGE_CONNECTION_STRING = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
+AZURE_STORAGE_ACCOUNT_NAME = os.getenv('AZURE_STORAGE_ACCOUNT_NAME') 
+AZURE_STORAGE_ACCOUNT_KEY = os.getenv('AZURE_STORAGE_ACCOUNT_KEY')
 
-if not CONNECTION_STRING or not CONTAINER_NAME:
-    raise RuntimeError("Azure env vars missing")
+# Log para debug
+logger.info(f"Azure Storage Account Name: {AZURE_STORAGE_ACCOUNT_NAME}")
+logger.info(f"Azure Storage Connection String configured: {bool(AZURE_STORAGE_CONNECTION_STRING)}")
 
-# inicializa cliente (funciona com sua connection string SAS)
-blob_service_client = BlobServiceClient.from_connection_string(CONNECTION_STRING)
-container_client = blob_service_client.get_container_client(CONTAINER_NAME)
+def get_blob_service_client():
+    """Retorna o cliente do Blob Service se as credenciais existirem"""
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        raise RuntimeError("Azure env vars missing - cannot create blob service client")
+    
+    try:
+        return BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+    except Exception as e:
+        logger.error(f"Error creating blob service client: {e}")
+        raise
 
-def _extract_sas_from_conn_str(conn_str: str) -> str | None:
-    """Retorna o valor do SharedAccessSignature se existir na connection string."""
-    parts = dict(x.split("=", 1) for x in conn_str.split(";") if "=" in x)
-    sas = parts.get("SharedAccessSignature") or parts.get("SharedAccessSignature".lower())
-    if not sas:
-        return None
-    # sanitize: remove possíveis aspas e espaços e leading '?'
-    sas = sas.strip().strip('"').strip("'")
-    if sas.startswith("?"):
-        sas = sas[1:]
-    return sas
+def download_arquivo(container_name, blob_name, local_file_name):
+    """Faz download de um arquivo do Azure Blob Storage"""
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        raise RuntimeError("Azure env vars missing - cannot download file")
+    
+    try:
+        blob_service_client = get_blob_service_client()
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        
+        with open(local_file_name, "wb") as download_file:
+            download_file.write(blob_client.download_blob().readall())
+        
+        logger.info(f"File downloaded: {blob_name} -> {local_file_name}")
+        return True
+    except Exception as e:
+        logger.error(f"Error downloading file: {e}")
+        raise
 
-def upload_arquivo(local_path: str, blob_name: str) -> str:
-    """Faz upload do arquivo e retorna uma URL utilizável (com SAS se disponível)."""
-    # upload
-    blob_client = container_client.get_blob_client(blob_name)
-    with open(local_path, "rb") as data:
-        blob_client.upload_blob(data, overwrite=True)
+def upload_arquivo(container_name, local_file_name, blob_name=None):
+    """Faz upload de um arquivo para o Azure Blob Storage"""
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        raise RuntimeError("Azure env vars missing - cannot upload file")
+    
+    try:
+        if blob_name is None:
+            blob_name = os.path.basename(local_file_name)
+        
+        blob_service_client = get_blob_service_client()
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        
+        with open(local_file_name, "rb") as data:
+            blob_client.upload_blob(data, overwrite=True)
+        
+        logger.info(f"File uploaded: {local_file_name} -> {blob_name}")
+        return True
+    except Exception as e:
+        logger.error(f"Error uploading file: {e}")
+        raise
 
-    # monta URL base sem SAS
-    base_blob_url = f"https://{blob_service_client.account_name}.blob.core.windows.net/{CONTAINER_NAME}/{blob_name}"
+# Funções auxiliares
+def container_exists(container_name):
+    """Verifica se um container existe"""
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        return False
+    
+    try:
+        blob_service_client = get_blob_service_client()
+        container_client = blob_service_client.get_container_client(container_name)
+        return container_client.exists()
+    except Exception:
+        return False
 
-    # tenta reaproveitar SAS embutido na connection string
-    sas = _extract_sas_from_conn_str(CONNECTION_STRING)
-
-    # debug: imprima o SAS e URL (remova em produção)
-    print("DEBUG: SAS extracted (repr):", repr(sas))
-    print("DEBUG: base_blob_url:", base_blob_url)
-
-    if sas:
-        url = f"{base_blob_url}?{sas}"  # apenas um "?"
-    else:
-        url = base_blob_url
-
-    print("DEBUG: final blob url:", url)
-    return url
-
-def download_arquivo(nome_arquivo: str) -> str:
-    """
-    Gera a URL pública (com SAS) para um arquivo do container.
-    Exemplo de retorno: https://<account>.blob.core.windows.net/<container>/<arquivo>?<sas>
-    """
-    if not CONNECTION_STRING:
-        raise ValueError("Connection string não encontrada no .env")
-
-    # Extrai o SAS da connection string
-    sas = _extract_sas_from_conn_str(CONNECTION_STRING)
-    if not sas:
-        raise ValueError("SharedAccessSignature não encontrada na connection string")
-
-    # Monta a URL final corretamente
-    blob_url = f"https://{blob_service_client.account_name}.blob.core.windows.net/{CONTAINER_NAME}/{nome_arquivo}?{sas}"
-    print("DEBUG: URL final correta:", blob_url)
-    return blob_url
+def list_blobs(container_name):
+    """Lista blobs em um container"""
+    if not AZURE_STORAGE_CONNECTION_STRING:
+        return []
+    
+    try:
+        blob_service_client = get_blob_service_client()
+        container_client = blob_service_client.get_container_client(container_name)
+        return [blob.name for blob in container_client.list_blobs()]
+    except Exception as e:
+        logger.error(f"Error listing blobs: {e}")
+        return []
