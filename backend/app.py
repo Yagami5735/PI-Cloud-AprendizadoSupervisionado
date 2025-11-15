@@ -1,8 +1,9 @@
 # backend/app.py
 from fastapi import FastAPI, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import Response
 import uvicorn
 import os
 import pandas as pd
@@ -129,16 +130,15 @@ async def prever_csv(file: UploadFile):
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
-# ✅ NOVO ENDPOINT PARA DOWNLOAD DO CSV
 @app.get("/prever/csv/")
 async def download_previsao_csv():
     """Endpoint para baixar o CSV com as previsões"""
     try:
-        from ml.azure_utils import download_bytes
+        # Use apenas as funções que já existem no app2.py
         from ml.app2 import carregar_modelo, normalizar_minmax, baixar_binario_do_blob
         import pandas as pd
         
-        # Carrega dados e modelo
+        # Carrega dados e modelo usando a função que já existe
         X_previsao = baixar_binario_do_blob("X_previsao.bin")
         modelo = carregar_modelo("modelo_final.pkl")
         
@@ -163,9 +163,10 @@ async def download_previsao_csv():
     except Exception as e:
         return JSONResponse({"error": f"Erro ao gerar CSV: {str(e)}"}, status_code=500)
 
+# Mantenha o endpoint reset que já existe
 @app.post("/reset/")
 async def resetar_modelo():
     return JSONResponse({
-        "status": "ok",
+        "status": "ok", 
         "mensagem": "Interface resetada."
     })

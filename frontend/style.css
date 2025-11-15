@@ -144,6 +144,50 @@ img {
   margin-top: 10px;
 }
 
+/* ✅ ADICIONE ESTES ESTILOS AO style.css EXISTENTE */
+
+/* Botão de download */
+.btn-download {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 10px;
+    transition: background-color 0.3s;
+}
+
+.btn-download:hover {
+    background-color: #218838;
+}
+
+/* Container do download */
+#download-container {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    border-left: 4px solid #28a745;
+    margin-top: 20px;
+}
+
+/* Estilos para mensagens (se não existirem) */
+.mensagem .sucesso {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.mensagem .erro {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.mensagem .processando {
+    color: #17a2b8;
+    font-weight: bold;
+}
+
 /* Responsividade */
 @media (max-width: 600px) {
   main {
