@@ -67,6 +67,41 @@ button:active { transform: scale(0.97); box-shadow: 0 3px 7px rgba(0,0,0,0.2); }
 .mensagem { margin-top: 10px; font-weight: bold; color: #333; }
 img { max-width: 100%; border-radius: 8px; margin-top: 10px; display: block; }
 
+/* ✅ ADICIONE APENAS ESTES ESTILOS AO style.css */
+
+/* Botão de reset */
+.btn-reset {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-left: 10px;
+}
+
+/* Botão de download */
+.btn-download {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+/* Container do download */
+#download-container {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    border-left: 4px solid #28a745;
+    margin-top: 20px;
+}
+
 footer {
   background-color: #f1f1f1;
   padding: 1rem;
