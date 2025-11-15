@@ -1,11 +1,8 @@
-name: Deploy Python App to Azure
+name: Deploy to Azure Web App
 
 on:
   push:
     branches: [ main ]
-
-env:
-  AZURE_WEBAPP_NAME: 'pi-backend-ml'
 
 jobs:
   deploy:
@@ -15,27 +12,29 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Login to Azure
-      uses: azure/login@v1
+    - name: Setup Python
+      uses: actions/setup-python@v4
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        python-version: '3.11'
 
-    - name: Create deployment package
+    - name: Install dependencies
       run: |
-        mkdir -p deployment_package
-        cp -r backend/* deployment_package/
-        cp -r frontend deployment_package/
-        cd deployment_package
-        zip -r ../app.zip .
-        cd ..
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
-        app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        package: './app.zip'
+        app-name: 'pi-backend-ml'
+        slot-name: 'production'
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
 
-    - name: Verify deployment
-      run: |
-        echo "✅ Deploy concluído"
-        echo "🌐 URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+    - name: Wait for deployment to complete
+      run: sleep 30
+
+    - name: Restart App Service
+      uses: azure/CLI@v1
+      with:
+        azcliversion: 2.0.72
+        inlineScript: |
+          az webapp restart --name pi-backend-ml --resource-group PI_Prod
