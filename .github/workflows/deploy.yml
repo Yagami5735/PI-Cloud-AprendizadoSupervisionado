@@ -15,38 +15,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Python
-      uses: actions/setup-python@v4
+    - name: Login to Azure
+      uses: azure/login@v1
       with:
-        python-version: '3.11'
-
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install fastapi==0.104.1
-        pip install uvicorn==0.24.0
-        pip install pandas==2.1.3
-        pip install numpy==1.24.3
-        pip install scikit-learn==1.3.2
-        pip install matplotlib==3.8.2
-        pip install azure-storage-blob==12.19.0
-        pip install python-multipart==0.0.6
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: Create deployment package
       run: |
         mkdir -p deployment_package
         cp -r backend/* deployment_package/
         cp -r frontend deployment_package/
-        # Copia o requirements.txt para o pacote
-        cp requirements.txt deployment_package/
         cd deployment_package
         zip -r ../app.zip .
         cd ..
-
-    - name: Login to Azure
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
@@ -54,15 +35,7 @@ jobs:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         package: './app.zip'
 
-    - name: Restart App Service
-      uses: azure/CLI@v1
-      with:
-        inlineScript: |
-          az webapp restart --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group PI_Prod
-          echo "🔄 App Service reiniciado"
-
     - name: Verify deployment
       run: |
-        echo "✅ Deploy concluído com sucesso!"
+        echo "✅ Deploy concluído"
         echo "🌐 URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
-        echo "📊 Health Check: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health"
