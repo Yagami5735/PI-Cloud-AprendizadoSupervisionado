@@ -1,7 +1,7 @@
 # backend/app.py
 from fastapi import FastAPI, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 import os
@@ -61,6 +61,8 @@ async def upload_csv(file: UploadFile, campo: str = Form(...)):
         if campo not in df.columns:
             return JSONResponse({"error": f"Campo '{campo}' não encontrado no CSV."}, status_code=400)
 
+        df = df.fillna(df.mean())
+        
         y = df[[campo]]
         X = df.drop(columns=[campo])
 
@@ -126,6 +128,40 @@ async def prever_csv(file: UploadFile):
         })
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+
+# ✅ NOVO ENDPOINT PARA DOWNLOAD DO CSV
+@app.get("/prever/csv/")
+async def download_previsao_csv():
+    """Endpoint para baixar o CSV com as previsões"""
+    try:
+        from ml.azure_utils import download_bytes
+        from ml.app2 import carregar_modelo, normalizar_minmax, baixar_binario_do_blob
+        import pandas as pd
+        
+        # Carrega dados e modelo
+        X_previsao = baixar_binario_do_blob("X_previsao.bin")
+        modelo = carregar_modelo("modelo_final.pkl")
+        
+        # Faz previsões
+        X_norm = normalizar_minmax(X_previsao)
+        previsoes = modelo.predict(X_norm)
+        
+        # Cria DataFrame com previsões junto com dados originais
+        df_completo = X_previsao.copy()
+        df_completo['previsao'] = previsoes
+        
+        # Converte para CSV
+        csv_content = df_completo.to_csv(index=False)
+        
+        # Retorna como CSV para download
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=previsoes.csv"}
+        )
+        
+    except Exception as e:
+        return JSONResponse({"error": f"Erro ao gerar CSV: {str(e)}"}, status_code=500)
 
 @app.post("/reset/")
 async def resetar_modelo():
