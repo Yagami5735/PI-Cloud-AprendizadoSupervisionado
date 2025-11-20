@@ -1,4 +1,3 @@
-# backend/ml/app2.py
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,34 +8,36 @@ from fastapi import HTTPException
 from .azure_utils import download_bytes, upload_bytes, salvar_modelo, carregar_modelo, download_arquivo
 from io import BytesIO
 
-# ---------- util: descriptografa bytes ----------
+# Função para descriptografar os dados
 def descriptografar_binario(bin_data: bytes) -> pd.DataFrame:
     dados = bytes([(b - 1) % 256 for b in bin_data])
     buffer = BytesIO(dados)
     df = pd.read_csv(buffer)
     return df
 
-# ---------- util: baixa binário do Blob ----------
+# Função que baixa o binário do Blob e descriptografa
 def baixar_binario_do_blob(blob_name: str) -> pd.DataFrame:
-    # USANDO CONTAINER "uploads"
     bin_data = download_bytes(blob_name, "uploads")
     df = descriptografar_binario(bin_data)
     return df
 
-# ---------- validação ----------
+# Função que valida os dados
 def validar_dados(X, y):
     erros = []
+    # Checa se há mais que 20 dados
     if len(X) < 20:
         erros.append(f"Poucos dados ({len(X)} linhas). Mínimo: 20.")
+    # Checa se há tipos inválidos
     tipos_invalidos = X.select_dtypes(exclude=[np.number]).columns.tolist()
     if tipos_invalidos:
         erros.append(f"Variáveis não numéricas: {tipos_invalidos}")
     if erros:
         raise HTTPException(status_code=400, detail={"status": "erro_validacao", "mensagens": erros})
 
-# ---------- normalização MinMax ----------
+# Função para aplicar nomalização Min-Max
 def normalizar_minmax(X: pd.DataFrame) -> pd.DataFrame:
     X_norm = X.copy()
+    # Pra cada campo, aplicar a min max
     for campo in X.columns:
         denom = X[campo].max() - X[campo].min()
         if denom == 0 or pd.isna(denom):
@@ -45,43 +46,49 @@ def normalizar_minmax(X: pd.DataFrame) -> pd.DataFrame:
             X_norm[campo] = (X[campo] - X[campo].min()) / denom
     return X_norm
 
+# Converte os gráficos para bytes
 def figura_para_bytes(fig) -> bytes:
-    """Converte figura matplotlib para bytes em memória."""
     buffer = BytesIO()
     fig.savefig(buffer, format='png', dpi=300, bbox_inches='tight')
     buffer.seek(0)
     return buffer.getvalue()
 
-# ===========================
-# treinar_modelo
-# ===========================
+# Função Treinar Modelo
 def treinar_modelo(X_blob="X.bin", y_blob="y.bin"):
+    # Baixa do Blob os arquivos
     X = baixar_binario_do_blob(X_blob)
     y = baixar_binario_do_blob(y_blob)
     if y.ndim > 1 and y.shape[1] > 1:
         y = y.iloc[:, 0]
     df = pd.concat([X, y], axis=1).dropna()
     X, y = df.iloc[:, :-1], df.iloc[:, -1]
+    # Valida os dados
     validar_dados(X, y)
+    # Aplica normalização em X
     X = normalizar_minmax(X)
 
+    # Fazendo o CV com 5 splits
     tscv = TimeSeriesSplit(n_splits=5)
     fig, axes = plt.subplots(tscv.get_n_splits() + 1, 2, figsize=(15, 5 * (tscv.get_n_splits() + 1)))
     r2_test_lista, rmse_test_lista = [], []
 
     for i, (train_idx, test_idx) in enumerate(tscv.split(X)):
+        # Separando em x e y train e test
         X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
         y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 
+        # Aplicando o modelo linear
         modelo = LinearRegression().fit(X_train, y_train)
         y_pred_train = modelo.predict(X_train)
         y_pred_test = modelo.predict(X_test)
 
+        # Calculando as métricas
         r2_test = modelo.score(X_test, y_test)
         rmse_test = mean_squared_error(y_test, y_pred_test) ** 0.5
         r2_test_lista.append(r2_test)
         rmse_test_lista.append(rmse_test)
 
+        # Plotando os gráficos com as métricas
         ax1, ax2 = axes[i, 0], axes[i, 1]
         ax1.plot(y.values, label='Real', color='blue')
         ax1.plot(range(len(y_pred_train)), y_pred_train, color='red', label='Treino')
@@ -97,7 +104,7 @@ def treinar_modelo(X_blob="X.bin", y_blob="y.bin"):
                  transform=ax2.transAxes, fontsize=10,
                  bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8),
                  verticalalignment='top')
-
+    # Plotando gráfico final com a média do desempenho das folds
     mean_r2, mean_rmse = np.mean(r2_test_lista), np.mean(rmse_test_lista)
     ax_r2, ax_rmse = axes[-1, 0], axes[-1, 1]
     ax_r2.plot(range(1, len(r2_test_lista)+1), r2_test_lista, marker='o', label='R²')
@@ -109,23 +116,23 @@ def treinar_modelo(X_blob="X.bin", y_blob="y.bin"):
 
     plt.tight_layout()
     
-    # USANDO CONTAINER "uploads"
+    # Convertendo a imagem para bytes
     img_bytes = figura_para_bytes(fig)
+    # Salvndo ela no Blob
     upload_bytes(img_bytes, "cv_plot2.png", "uploads")
     plt.close(fig)
     
     # Salva o modelo final treinado
     modelo_final = LinearRegression().fit(X, y)
     salvar_modelo(modelo_final, "modelo_final.pkl")
-    
-    # USANDO CONTAINER "uploads"
+
+    # Retornando o ULR da imagem
     blob_url = download_arquivo("cv_plot2.png", "uploads")
     return blob_url
 
-# ===========================
-# avaliar_modelo
-# ===========================
+# Função Avaliar o Modelo
 def avaliar_modelo(X_blob="X_avaliacao.bin", y_blob="y_avaliacao.bin"):
+    # Recebe os arquivos binários do Blob
     X = baixar_binario_do_blob(X_blob)
     y = baixar_binario_do_blob(y_blob)
     if y.ndim > 1 and y.shape[1] > 1:
@@ -133,11 +140,12 @@ def avaliar_modelo(X_blob="X_avaliacao.bin", y_blob="y_avaliacao.bin"):
 
     df = pd.concat([X, y], axis=1).dropna()
     X, y = df.iloc[:, :-1], df.iloc[:, -1]
+    # Valida os dados
     validar_dados(X, y)
-
+    # Aplica Min Max nos novos dados
     X_norm = normalizar_minmax(X)
     
-    # Carrega o modelo treinado
+    # Abre o modelo treinado
     try:
         modelo = carregar_modelo("modelo_final.pkl")
     except:
@@ -148,7 +156,7 @@ def avaliar_modelo(X_blob="X_avaliacao.bin", y_blob="y_avaliacao.bin"):
     rmse = mean_squared_error(y, y_pred) ** 0.5
     r2 = modelo.score(X_norm, y)
 
-    # Gera gráfico avaliação
+    # Fazendo o gráfico da avaliação com as métricas
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
     ax1.plot(X_norm.index, y, label='Real', color='blue', linewidth=2)
     ax1.plot(X_norm.index, y_pred, label='Predito', color='red', linewidth=2)
@@ -170,18 +178,16 @@ def avaliar_modelo(X_blob="X_avaliacao.bin", y_blob="y_avaliacao.bin"):
 
     plt.tight_layout()
     
-    # USANDO CONTAINER "uploads"
+    # Jogando o gráfico no Blob 
     img_bytes = figura_para_bytes(fig)
     upload_bytes(img_bytes, "avaliacao_plot.png", "uploads")
     plt.close(fig)
 
-    # USANDO CONTAINER "uploads"
+    # Recebendo o URL do gráfico do Blob e retornando ele
     blob_url = download_arquivo("avaliacao_plot.png", "uploads")
     return blob_url
 
-# ===========================
-# prever_novos_dados
-# ===========================
+# Função para prever novos dados
 def prever_novos_dados(X_blob="X_previsao.bin"):
     # Carrega modelo treinado
     try:
@@ -189,14 +195,14 @@ def prever_novos_dados(X_blob="X_previsao.bin"):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Modelo não encontrado. Treine um modelo primeiro: {e}")
 
-    # Baixa dados novos
+    # Reebe os novos dados
     X_novos = baixar_binario_do_blob(X_blob)
+    # Normaliza eles
     X_novos_norm = normalizar_minmax(X_novos)
-
-    # Prever
+    # Faz o predict
     y_pred = modelo.predict(X_novos_norm)
 
-    # Gera gráfico de predição
+    # Fazendo o gráfico de predição
     fig, ax = plt.subplots(figsize=(12, 5))
     ax.plot(X_novos_norm.index, y_pred, label='Predição', linewidth=2, color='red')
     ax.set_title('Predição', fontsize=13)
@@ -204,11 +210,11 @@ def prever_novos_dados(X_blob="X_previsao.bin"):
     ax.legend(); ax.grid(True, alpha=0.3)
     plt.tight_layout()
 
-    # USANDO CONTAINER "uploads"
+    # Jogando o gráfico no Blob
     img_bytes = figura_para_bytes(fig)
     upload_bytes(img_bytes, "prever_plot.png", "uploads")
     plt.close(fig)
 
-    # USANDO CONTAINER "uploads"
+    # Puando a URL do gráfico do Blob e retornando
     blob_url = download_arquivo("prever_plot.png", "uploads")
     return blob_url
