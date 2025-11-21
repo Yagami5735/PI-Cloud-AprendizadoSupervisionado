@@ -1,5 +1,3 @@
-// frontend/script.js
-
 // URL do backend - ajuste automático para produção
 const BACKEND_URL = window.location.origin;
 
@@ -9,15 +7,15 @@ async function enviarArquivo(url, fileInputId, campoInputId, graficoId, mensagem
   const mensagem = document.getElementById(mensagemId);
   const graficoImg = document.getElementById(graficoId);
 
-  if (!fileInput.files.length) { 
-    mensagem.textContent = "Selecione um arquivo!"; 
+  if (!fileInput.files.length) {
+    mensagem.textContent = "Selecione um arquivo!";
     mensagem.style.color = "red";
-    return; 
+    return;
   }
-  if (campoInputId && !campo.trim()) { 
-    mensagem.textContent = "Informe o campo alvo (y)!"; 
+  if (campoInputId && !campo.trim()) {
+    mensagem.textContent = "Informe o campo alvo (y)!";
     mensagem.style.color = "red";
-    return; 
+    return;
   }
 
   mensagem.textContent = "Processando...";
@@ -32,10 +30,10 @@ async function enviarArquivo(url, fileInputId, campoInputId, graficoId, mensagem
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 120000);
 
-    const res = await fetch(url, { 
-      method: "POST", 
-      body: formData, 
-      signal: controller.signal 
+    const res = await fetch(url, {
+      method: "POST",
+      body: formData,
+      signal: controller.signal
     });
     clearTimeout(timeoutId);
 
@@ -67,7 +65,7 @@ async function enviarArquivo(url, fileInputId, campoInputId, graficoId, mensagem
 
     mensagem.textContent = data.message || "Sucesso!";
     mensagem.style.color = "green";
-    
+
     if (proximaEtapaId) {
       document.getElementById(proximaEtapaId).style.display = "block";
     }
@@ -96,12 +94,10 @@ function preverNovosDados() {
   buscarDadosPrevisao();
 }
 
-// ✅ ADICIONE APENAS ESTAS FUNÇÕES AO FINAL DO script.js
-
 // Variável global para armazenar os dados de previsão
 let dadosPrevisao = null;
 
-// ✅ FUNÇÃO PARA BUSCAR DADOS CSV DA PREVISÃO
+// FUNÇÃO PARA BUSCAR DADOS CSV DA PREVISÃO
 async function buscarDadosPrevisao() {
   try {
     const response = await fetch(`${BACKEND_URL}/prever/csv/`);
@@ -115,39 +111,38 @@ async function buscarDadosPrevisao() {
   }
 }
 
-// ✅ FUNÇÃO PARA MOSTRAR BOTÃO DE DOWNLOAD
+// FUNÇÃO PARA MOSTRAR BOTÃO DE DOWNLOAD
 function adicionarBotaoDownload() {
   // Remove o container anterior se existir
   const containerAnterior = document.getElementById('download-container');
   if (containerAnterior) {
     containerAnterior.remove();
   }
-  
+
   // Cria novo container de download
   const downloadContainer = document.createElement('div');
   downloadContainer.id = 'download-container';
   downloadContainer.innerHTML = `
-    <h3>📊 Download das Previsões</h3>
+    <h3>Download das Previsões</h3>
     <button onclick="baixarCSV()" class="btn-download">Baixar CSV com Previsões</button>
   `;
-  
-  // Adiciona após a etapa 3
+
   const etapa3 = document.getElementById('etapa3');
   etapa3.appendChild(downloadContainer);
 }
 
-// ✅ FUNÇÃO PARA BAIXAR O CSV
+//FUNÇÃO PARA BAIXAR O CSV
 function baixarCSV() {
   if (!dadosPrevisao) {
     alert('Nenhum dado de previsão disponível para download.');
     return;
   }
-  
+
   // Cria um blob com os dados CSV
   const blob = new Blob([dadosPrevisao], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  
+
   // Configura o download
   link.href = url;
   link.setAttribute('download', 'previsoes.csv');
@@ -155,50 +150,50 @@ function baixarCSV() {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  
+
   alert('CSV baixado com sucesso!');
 }
 
-// ✅ FUNÇÃO PARA RESETAR A PÁGINA
+// FUNÇÃO PARA RESETAR A PÁGINA
 function resetarPagina() {
   // Esconde todas as etapas exceto a primeira
   document.getElementById('etapa1').style.display = 'block';
   document.getElementById('etapa2').style.display = 'none';
   document.getElementById('etapa3').style.display = 'none';
-  
+
   // Limpa todas as mensagens
   document.getElementById('mensagem_treino').textContent = '';
   document.getElementById('mensagem_avaliacao').textContent = '';
   document.getElementById('mensagem_previsao').textContent = '';
-  
+
   // Esconde todos os gráficos
   document.getElementById('grafico_treino').style.display = 'none';
   document.getElementById('grafico_avaliacao').style.display = 'none';
   document.getElementById('grafico_previsao').style.display = 'none';
-  
+
   // Limpa os campos de arquivo
   document.getElementById('file_treino').value = '';
   document.getElementById('file_avaliacao').value = '';
   document.getElementById('file_previsao').value = '';
-  
+
   // Limpa os campos de texto
   document.getElementById('campo_treino').value = '';
   document.getElementById('campo_avaliacao').value = '';
-  
+
   // Remove o container de download se existir
   const downloadContainer = document.getElementById('download-container');
   if (downloadContainer) {
     downloadContainer.remove();
   }
-  
+
   // Limpa os dados de previsão
   dadosPrevisao = null;
-  
+
   alert('Página resetada com sucesso! Pronto para começar novamente.');
 }
 
 // Verificar se o backend está online ao carregar a página
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   fetch(`${BACKEND_URL}/health`)
     .then(response => response.json())
     .then(data => {

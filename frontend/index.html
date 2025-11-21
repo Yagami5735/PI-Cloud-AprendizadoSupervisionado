@@ -1,68 +1,71 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Projeto Integrador</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
 
-<header>
-  <h1>Projeto Integrador</h1>
-</header>
+  <header>
+    <h1>Projeto Integrador</h1>
+  </header>
 
-<main>
-  <!-- ETAPA 1: Treinar Modelo -->
-  <section id="etapa1">
-    <h2>1. Upload de Arquivo para Treinar Modelo</h2>
-    <div class="upload-container">
-      <label for="file_treino">Escolha o arquivo CSV completo (com y):</label>
-      <input type="file" id="file_treino" accept=".csv">
-    </div>
-    <div class="campo-container">
-      <label for="campo_treino">Campo alvo (y):</label>
-      <input type="text" id="campo_treino" placeholder="Ex: producao_media">
-    </div>
-    <button onclick="gerarModelo()">Treinar Modelo</button>
-    <button onclick="resetarPagina()" class="btn-reset">Reset</button>
-    <div id="mensagem_treino" class="mensagem"></div>
-    <img id="grafico_treino" src="" style="display:none;">
-  </section>
+  <main>
+    <!-- ETAPA 1: Treinar Modelo -->
+    <section id="etapa1">
+      <h2>1. Upload de Arquivo para Treinar Modelo</h2>
+      <div class="upload-container">
+        <label for="file_treino">Escolha o arquivo CSV completo (com y):</label>
+        <input type="file" id="file_treino" accept=".csv">
+      </div>
+      <div class="campo-container">
+        <label for="campo_treino">Campo alvo (y):</label>
+        <input type="text" id="campo_treino" placeholder="Ex: producao_media">
+      </div>
+      <button onclick="gerarModelo()">Treinar Modelo</button>
+      <button onclick="resetarPagina()" class="btn-reset">Reset</button>
+      <div id="mensagem_treino" class="mensagem"></div>
+      <img id="grafico_treino" src="" style="display:none;">
+    </section>
 
-  <!-- ETAPA 2: Avaliar Modelo -->
-  <section id="etapa2" style="display:none;">
-    <h2>2. Upload de Arquivo para Avaliação</h2>
-    <div class="upload-container">
-      <label for="file_avaliacao">Escolha o arquivo CSV para avaliar:</label>
-      <input type="file" id="file_avaliacao" accept=".csv">
-    </div>
-    <div class="campo-container">
-      <label for="campo_avaliacao">Campo alvo (y):</label>
-      <input type="text" id="campo_avaliacao" placeholder="Ex: producao_media">
-    </div>
-    <button onclick="avaliarModelo()">Avaliar Modelo</button>
-    <div id="mensagem_avaliacao" class="mensagem"></div>
-    <img id="grafico_avaliacao" src="" style="display:none;">
-  </section>
+    <!-- ETAPA 2: Avaliar Modelo -->
+    <section id="etapa2" style="display:none;">
+      <h2>2. Upload de Arquivo para Avaliação</h2>
+      <div class="upload-container">
+        <label for="file_avaliacao">Escolha o arquivo CSV para avaliar:</label>
+        <input type="file" id="file_avaliacao" accept=".csv">
+      </div>
+      <div class="campo-container">
+        <label for="campo_avaliacao">Campo alvo (y):</label>
+        <input type="text" id="campo_avaliacao" placeholder="Ex: producao_media">
+      </div>
+      <button onclick="avaliarModelo()">Avaliar Modelo</button>
+      <div id="mensagem_avaliacao" class="mensagem"></div>
+      <img id="grafico_avaliacao" src="" style="display:none;">
+    </section>
 
-  <!-- ETAPA 3: Previsão -->
-  <section id="etapa3" style="display:none;">
-    <h2>3. Upload de Arquivo para Previsão</h2>
-    <div class="upload-container">
-      <label for="file_previsao">Escolha o arquivo CSV apenas com X:</label>
-      <input type="file" id="file_previsao" accept=".csv">
-    </div>
-    <button onclick="preverNovosDados()">Prever</button>
-    <div id="mensagem_previsao" class="mensagem"></div>
-    <img id="grafico_previsao" src="" style="display:none;">
-  </section>
-</main>
+    <!-- ETAPA 3: Previsão -->
+    <section id="etapa3" style="display:none;">
+      <h2>3. Upload de Arquivo para Previsão</h2>
+      <div class="upload-container">
+        <label for="file_previsao">Escolha o arquivo CSV apenas com X:</label>
+        <input type="file" id="file_previsao" accept=".csv">
+      </div>
+      <button onclick="preverNovosDados()">Prever</button>
+      <div id="mensagem_previsao" class="mensagem"></div>
+      <img id="grafico_previsao" src="" style="display:none;">
+    </section>
+  </main>
 
-<footer>
-  <p>© 2025 Projeto Integrador</p>
-</footer>
+  <footer>
+    <p>© 2025 Projeto Integrador</p>
+  </footer>
 
-<script src="/static/script.js"></script>
+  <script src="/static/script.js"></script>
 </body>
+
 </html>
