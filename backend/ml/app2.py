@@ -60,7 +60,11 @@ def treinar_modelo(X_blob="X.bin", y_blob="y.bin"):
     y = baixar_binario_do_blob(y_blob)
     if y.ndim > 1 and y.shape[1] > 1:
         y = y.iloc[:, 0]
-    df = pd.concat([X, y], axis=1).dropna()
+    df = pd.concat([X, y], axis=1)
+    
+    # Tapando os NA com a média do valor anterior e do próximo
+    df = df.interpolate(method='linear')
+    
     X, y = df.iloc[:, :-1], df.iloc[:, -1]
     # Valida os dados
     validar_dados(X, y)
@@ -138,8 +142,13 @@ def avaliar_modelo(X_blob="X_avaliacao.bin", y_blob="y_avaliacao.bin"):
     if y.ndim > 1 and y.shape[1] > 1:
         y = y.iloc[:, 0]
 
-    df = pd.concat([X, y], axis=1).dropna()
+    df = pd.concat([X, y], axis=1)
+    
+    # Tapando os NA com a média do valor anterior e do próximo
+    df = df.interpolate(method='linear')
+    
     X, y = df.iloc[:, :-1], df.iloc[:, -1]
+    
     # Valida os dados
     validar_dados(X, y)
     # Aplica Min Max nos novos dados
@@ -197,6 +206,8 @@ def prever_novos_dados(X_blob="X_previsao.bin"):
 
     # Reebe os novos dados
     X_novos = baixar_binario_do_blob(X_blob)
+    # Tapando os NA com a média do valor anterior e do próximo
+    X_novos = X_novos.interpolate(method='linear')
     # Normaliza eles
     X_novos_norm = normalizar_minmax(X_novos)
     # Faz o predict

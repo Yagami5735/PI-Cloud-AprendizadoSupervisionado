@@ -37,5 +37,5 @@ jobs:
 
     - name: Verify deployment
       run: |
-        echo "✅ Deploy concluído"
-        echo "🌐 URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+        echo "Deploy concluído"
+        echo "URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"

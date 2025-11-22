@@ -65,9 +65,6 @@ async def upload_csv(file: UploadFile, campo: str = Form(...)):
         if campo not in df.columns:
             return JSONResponse({"error": f"Campo '{campo}' não encontrado no CSV."}, status_code=400)
 
-        # Tapando os NA com a média do valor anterior e do próximo
-        df = df.interpolate(method='linear')
-
         # Separando em X e y
         y = df[[campo]]
         X = df.drop(columns=[campo])
