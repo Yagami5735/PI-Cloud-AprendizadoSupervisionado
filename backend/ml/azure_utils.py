@@ -17,18 +17,16 @@ logger.info(f"Azure Storage Account Name: {AZURE_STORAGE_ACCOUNT_NAME}")
 logger.info(f"Azure Storage Connection String configured: {bool(AZURE_STORAGE_CONNECTION_STRING)}")
 
 def get_blob_service_client():
-    """Retorna o cliente do Blob Service se as credenciais existirem"""
     if not AZURE_STORAGE_CONNECTION_STRING:
         raise RuntimeError("Azure env vars missing - cannot create blob service client")
-    
     try:
         return BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
     except Exception as e:
         logger.error(f"Error creating blob service client: {e}")
         raise
 
+# Função para baixar o arquivo
 def download_arquivo(blob_name: str, container_name: str) -> str:
-    """Retorna a URL pública assinada do arquivo no Azure Blob Storage"""
     if not AZURE_STORAGE_CONNECTION_STRING:
         raise RuntimeError("Azure env vars missing - cannot get file URL")
     
@@ -39,7 +37,7 @@ def download_arquivo(blob_name: str, container_name: str) -> str:
         blob_service_client = get_blob_service_client()
         blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
         
-        # Gera SAS token para acesso público temporário
+        # Gera um token com acesso público temporário
         sas_token = generate_blob_sas(
             account_name=AZURE_STORAGE_ACCOUNT_NAME,
             container_name=container_name,
@@ -49,7 +47,7 @@ def download_arquivo(blob_name: str, container_name: str) -> str:
             expiry=datetime.utcnow() + timedelta(hours=24)  # Válido por 24 horas
         )
         
-        # Retorna a URL com SAS token
+        # Retorna a URL
         url = f"https://{AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{container_name}/{blob_name}?{sas_token}"
         logger.info(f"Generated SAS URL for: {blob_name}")
         return url
@@ -58,8 +56,8 @@ def download_arquivo(blob_name: str, container_name: str) -> str:
         logger.error(f"Error generating file URL: {e}")
         raise
 
+# Função para fazer upload de arquivos no Blob
 def upload_arquivo(local_file_name: str, blob_name: str = None, container_name: str = "uploads"):
-    """Faz upload de um arquivo para o Azure Blob Storage"""
     if not AZURE_STORAGE_CONNECTION_STRING:
         raise RuntimeError("Azure env vars missing - cannot upload file")
     
@@ -79,8 +77,8 @@ def upload_arquivo(local_file_name: str, blob_name: str = None, container_name: 
         logger.error(f"Error uploading file: {e}")
         raise
 
+# Função para fazer upload de bytes
 def upload_bytes(data: bytes, blob_name: str, container_name: str):
-    """Faz upload de bytes diretamente para o Azure Blob Storage"""
     if not AZURE_STORAGE_CONNECTION_STRING:
         raise RuntimeError("Azure env vars missing - cannot upload bytes")
     
@@ -96,8 +94,8 @@ def upload_bytes(data: bytes, blob_name: str, container_name: str):
         logger.error(f"Error uploading bytes: {e}")
         raise
 
+# Função para baixar os bytes
 def download_bytes(blob_name: str, container_name: str) -> bytes:
-    """Faz download de bytes do Azure Blob Storage"""
     if not AZURE_STORAGE_CONNECTION_STRING:
         raise RuntimeError("Azure env vars missing - cannot download bytes")
     
@@ -114,13 +112,14 @@ def download_bytes(blob_name: str, container_name: str) -> bytes:
         logger.error(f"Error downloading bytes: {e}")
         raise
 
+# Função para salvar o modelo linear
 def salvar_modelo(modelo, blob_name: str, container_name: str = "uploads"):
     """Salva um modelo treinado no Azure Blob Storage"""
     try:
-        # Serializa o modelo para bytes
+        # Salve em bytes
         model_bytes = pickle.dumps(modelo)
         
-        # Faz upload dos bytes
+        # Faz upload usando a função anterior
         upload_bytes(model_bytes, blob_name, container_name)
         
         logger.info(f"Model saved: {blob_name}")
@@ -128,10 +127,11 @@ def salvar_modelo(modelo, blob_name: str, container_name: str = "uploads"):
         logger.error(f"Error saving model: {e}")
         raise
 
+# Função pra puxar o modelo do blob
 def carregar_modelo(blob_name: str, container_name: str = "uploads"):
     """Carrega um modelo do Azure Blob Storage"""
     try:
-        # Faz download dos bytes
+        # Baixa os bytes
         model_bytes = download_bytes(blob_name, container_name)
         
         # Desserializa o modelo
@@ -143,9 +143,8 @@ def carregar_modelo(blob_name: str, container_name: str = "uploads"):
         logger.error(f"Error loading model: {e}")
         raise
 
-# Funções auxiliares (mantidas da sua versão original)
+# Função que checa se o conteiner existe pra segurança
 def container_exists(container_name):
-    """Verifica se um container existe"""
     if not AZURE_STORAGE_CONNECTION_STRING:
         return False
     
@@ -156,8 +155,8 @@ def container_exists(container_name):
     except Exception:
         return False
 
+# Função pra lista os blobs 
 def list_blobs(container_name):
-    """Lista blobs em um container"""
     if not AZURE_STORAGE_CONNECTION_STRING:
         return []
     
